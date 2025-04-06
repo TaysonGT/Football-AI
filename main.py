@@ -10,7 +10,8 @@ from camera_movement_estimator import CameraMovementEstimator
 from view_transformer import ViewTransformer
 from speed_and_distance_estimator import SpeedAndDistance_Estimator
 
-def process_video(video_path):
+def process_video(video_path, send_progress_callback):
+
     # Read Video
     video_frames = read_video(video_path)
     filename = os.path.basename(video_path)
@@ -18,8 +19,10 @@ def process_video(video_path):
     output_video = f"output_videos/processed_{name}.mp4"
 
     # Initialize Tracker
+    send_progress_callback("Initializing Tracker...", 10)
     tracker = Tracker('models/3k_imgs.pt', 'models/3k_imgs.pt')
 
+    send_progress_callback("Tracking objects...", 20)
     tracks = tracker.get_object_tracks(video_frames,
                                        read_from_stub=True,
                                        stub_path='stubs/track_stubs.pkl')
@@ -27,6 +30,7 @@ def process_video(video_path):
     tracker.add_position_to_tracks(tracks)
 
     # camera movement estimator
+    send_progress_callback("Estimating Camera Movement...", 30)
     camera_movement_estimator = CameraMovementEstimator(video_frames[0])
     camera_movement_per_frame = camera_movement_estimator.get_camera_movement(video_frames,
                                                                                 read_from_stub=True,
@@ -39,13 +43,16 @@ def process_video(video_path):
     view_transformer.add_transformed_position_to_tracks(tracks)
 
     # Interpolate Ball Positions
+    send_progress_callback("Interpolating Ball Positions...", 40)
     tracks["ball"] = tracker.interpolate_ball_positions(tracks["ball"])
 
     # Speed and distance estimator
+    send_progress_callback("Estimating Speed and Distance...", 50)
     speed_and_distance_estimator = SpeedAndDistance_Estimator()
     speed_and_distance_estimator.add_speed_and_distance_to_tracks(tracks)
 
     # Assign Player Teams
+    send_progress_callback("Assigning Teams...", 60)
     team_assigner = TeamAssigner()
     team_assigner.assign_team_color(video_frames[0], 
                                     tracks['players'][0])
@@ -60,6 +67,7 @@ def process_video(video_path):
 
     
     # Assign Ball Aquisition
+    send_progress_callback("Ball Aquisition Estimator...", 70)
     player_assigner =PlayerBallAssigner()
     team_ball_control= []
     for frame_num, player_track in enumerate(tracks['players']):
@@ -81,6 +89,7 @@ def process_video(video_path):
 
 
     # Draw output 
+    send_progress_callback("Drawing Annotations...", 90)
     ## Draw object Tracks
     output_video_frames = tracker.draw_annotations(video_frames, tracks,team_ball_control)
 
@@ -91,6 +100,7 @@ def process_video(video_path):
     speed_and_distance_estimator.draw_speed_and_distance(output_video_frames,tracks)
 
     # Save video
+    send_progress_callback("Processing Complete!", 100)
     save_video(output_video_frames, output_video)
 
 if __name__ == '__main__':

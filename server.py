@@ -1,16 +1,16 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
-import os
-import cv2
+from flask_socketio import SocketIO
 import subprocess
+import os
+from flask_cors import CORS
 
+# Initialize Flask and Flask-SocketIO
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
+socketio = SocketIO(app, cors_allowed_origins="*")
 
+# Folder to store processing videos
 PROCESSING_FOLDER = 'processing_videos'
-OUTPUT_FOLDER = 'output_videos'
-os.makedirs(PROCESSING_FOLDER, exist_ok=True)  # Ensure output folder exists
-
 
 @app.route('/upload', methods=['POST'])
 def upload_video():
@@ -19,60 +19,43 @@ def upload_video():
 
     video = request.files['video']
     video_path = os.path.join(PROCESSING_FOLDER, video.filename)
-    video_name, _ = os.path.splitext(video.filename)
+
     try:
-            video.save(video_path)  
-            print(f"✅ Video saved at: {video_path}")
+        video.save(video_path)
+        print(f"✅ Video saved at: {video_path}")
 
-            # Run processing script
-            result = subprocess.run(['python', 'main.py', video_path], capture_output=True, text=True)
-
-            # Debugging: Print subprocess output
-            print(f"🖥️ Subprocess Output:\n{result.stdout}")
-            print(f"⚠️ Errors (if any):\n{result.stderr}")
-
-            if result.returncode != 0:
-                return jsonify({'error': 'Processing failed', 'details': result.stderr}), 500
-
-            # Check if output exists
-            if not os.path.exists(video_path):
-                return jsonify({'error': 'Processed video not found'}), 500
-
-            return jsonify({'message': 'Processing complete', 'output': f"processed_{video_name}.mp4"})
+        # Run the processing script in the background
+        socketio.start_background_task(process_video, video_path, emit_progress)
+        
+        
+        return jsonify({'message': 'Video is being processed.'})
     except Exception as e:
         print(f"❌ Error: {e}")
         return jsonify({'error': 'Internal Server Error', 'details': str(e)}), 500
 
-
-@app.route('/open_video/<filename>', methods=['GET'])
-def open_video(filename):
-    video_path = os.path.join(OUTPUT_FOLDER, filename)
-    if not os.path.exists(video_path):
-        return jsonify({'error': 'File not found'}), 404
-
+# Background task for processing video
+def process_video(video_path, send_progress_callback):
     try:
-        if os.name == 'nt':  # Windows
-            os.startfile(video_path)
-        elif os.name == 'posix':  # Mac/Linux
-            subprocess.run(['open' if os.uname().sysname == "Darwin" else 'xdg-open', video_path])
+        send_progress_callback("Starting video processing...", 0)
 
-        return jsonify({'message': 'Video opened successfully'})
+        result = subprocess.run(
+            ['python', 'main.py', video_path], capture_output=True, text=True
+        )
+
+        if result.returncode != 0:
+            send_progress_callback("Processing failed", 0)
+            print(f"⚠️ Errors: {result.stderr}")
+        else:
+            send_progress_callback("Processing Complete!", 100)
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    
+        send_progress_callback(f"Error occurred during processing: {str(e)}", 0)
+        print(f"❌ Error: {e}")
 
-@app.route('/videos', methods=['GET'])
-def list_videos():
-    """Returns a list of all videos in the output folder"""
-    videos = [f for f in os.listdir(OUTPUT_FOLDER) if f.endswith(('.mp4', '.avi', '.mov', '.mkv'))]
-    
-    if not videos:
-        return jsonify({'message': 'No videos found'}), 404
-
-    return jsonify({'videos': videos})
-
+# Emit progress updates to the frontend
+def emit_progress(message, percent_complete):
+    socketio.emit('progress', {'message': message, 'progress': percent_complete})
 
 if __name__ == '__main__':
-    app.run(debug=True)
-
+    print("🚀 Starting server at http://0.0.0.0:3000")
+    socketio.run(app, host='0.0.0.0', port=3000, debug=True)

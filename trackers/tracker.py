@@ -23,7 +23,7 @@ class Tracker:
         )
         self.ball_tracker = sv.ByteTrack(
             track_activation_threshold=0.2, 
-            minimum_matching_threshold=0.8, 
+            minimum_matching_threshold=0.6, 
             lost_track_buffer=30,
             frame_rate=30
         )
@@ -47,7 +47,7 @@ class Tracker:
         batch_size=20 
         detections = [] 
         for i in range(0,len(frames),batch_size):
-            detections_batch = model.predict(frames[i:i+batch_size],conf=0.2)
+            detections_batch = model.predict(frames[i:i+batch_size],conf=0.1)
             detections += detections_batch
         return detections
 
@@ -57,8 +57,8 @@ class Tracker:
             with open(stub_path,'rb') as f:
                 return pickle.load(f)
 
-        player_detections = self.detect_frames(frames, self.player_model)
-        ball_detections = self.detect_frames(frames, self.ball_model)
+        main_detections = self.detect_frames(frames, self.player_model)
+        # ball_detections = self.detect_frames(frames, self.ball_model)
 
     
         tracks={
@@ -67,28 +67,28 @@ class Tracker:
             "ball":[]
         }
 
-        for frame_num, (player_detection, ball_detection) in enumerate(zip(player_detections, ball_detections)):
-            cls_names = player_detection.names
+        for frame_num, (detection) in enumerate(main_detections):
+            cls_names = detection.names
             cls_names_inv = {v:k for k,v in cls_names.items()}
 
             # Covert to supervision Detection format
-            player_detection_sv = sv.Detections.from_ultralytics(player_detection)
-            ball_detection_sv = sv.Detections.from_ultralytics(ball_detection)
+            detection_sv = sv.Detections.from_ultralytics(detection)
+            # ball_detection_sv = sv.Detections.from_ultralytics(ball_detection)
 
             # Convert GoalKeeper to player object
-            for object_ind , class_id in enumerate(player_detection_sv.class_id):
+            for object_ind , class_id in enumerate(detection_sv.class_id):
                 if cls_names[class_id] == "goalkeeper":
-                    player_detection_sv.class_id[object_ind] = cls_names_inv["player"]
+                    detection_sv.class_id[object_ind] = cls_names_inv["player"]
                     
-            print(f"[Frame {frame_num}] Ball Detections (raw):")
-            for i, det in enumerate(ball_detection_sv):
-                xyxy, mask, conf, class_id, tracker_id, class_name = det
-                print(f"  [{i}] Box: {xyxy.tolist()}, Conf: {conf:.2f}, Class ID: {class_id}, Name: {class_name}")
+            # print(f"[Frame {frame_num}] Ball Detections (raw):")
+            # for i, det in enumerate(ball_detection_sv):
+            #     xyxy, mask, conf, class_id, tracker_id, class_name = det
+            #     print(f"  [{i}] Box: {xyxy.tolist()}, Conf: {conf:.2f}, Class ID: {class_id}, Name: {class_name}")
 
             # Track Objects
             # Filter detections for the ball
-            players_tracked = self.player_tracker.update_with_detections(player_detection_sv)
-            ball_tracked = self.ball_tracker.update_with_detections(ball_detection_sv)
+            players_tracked = self.player_tracker.update_with_detections(detection_sv)
+            # ball_tracked = self.ball_tracker.update_with_detections(ball_detection_sv)
             
             tracks["players"].append({})
             tracks["referees"].append({})
@@ -104,11 +104,9 @@ class Tracker:
                 
                 if cls_id == cls_names_inv['referee']:
                     tracks["referees"][frame_num][track_id] = {"bbox":bbox}
-            
-            for frame_detection in ball_tracked:
-                bbox = frame_detection[0].tolist()
-                tracks["ball"][frame_num][1] = {"bbox":bbox}
-            print(f"[Frame {frame_num}] Ball Tracks: {[track[0].tolist() for track in ball_tracked]}")
+                
+                if cls_id == cls_names_inv['ball']:
+                    tracks["ball"][frame_num][1] = {"bbox":bbox}
 
         if stub_path is not None:
             with open(stub_path,'wb') as f:

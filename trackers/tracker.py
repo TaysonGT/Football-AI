@@ -75,15 +75,13 @@ class Tracker:
             detection_sv = sv.Detections.from_ultralytics(detection)
             # ball_detection_sv = sv.Detections.from_ultralytics(ball_detection)
 
-            # Convert GoalKeeper to player object
-            for object_ind , class_id in enumerate(detection_sv.class_id):
-                if cls_names[class_id] == "goalkeeper":
-                    detection_sv.class_id[object_ind] = cls_names_inv["player"]
-                    
-            # print(f"[Frame {frame_num}] Ball Detections (raw):")
-            # for i, det in enumerate(ball_detection_sv):
-            #     xyxy, mask, conf, class_id, tracker_id, class_name = det
-            #     print(f"  [{i}] Box: {xyxy.tolist()}, Conf: {conf:.2f}, Class ID: {class_id}, Name: {class_name}")
+
+            # Inside get_object_tracks(), after converting to sv.Detections:
+            for object_ind, (class_id, confidence) in enumerate(zip(detection_sv.class_id, detection_sv.confidence)):
+                if cls_names[class_id] == "referee" and confidence < 0.7:
+                    detection_sv.class_id[object_ind] = cls_names_inv["player"]  # Reclassify as player
+                elif cls_names[class_id] == "goalkeeper":
+                    detection_sv.class_id[object_ind] = cls_names_inv["player"]  # Existing goalkeeper handling
 
             # Track Objects
             # Filter detections for the ball

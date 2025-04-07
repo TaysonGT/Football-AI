@@ -107,5 +107,9 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         print("Error: No video file provided.")
         sys.exit(1)
+    
+    def send_progress_callback(msg, pct):
+        print(f"PROGRESS:{pct}:{msg}")  # Special format
+        
     video = sys.argv[1]
-    process_video(video)
+    process_video(video, send_progress_callback)

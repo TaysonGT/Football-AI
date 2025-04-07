@@ -3,17 +3,25 @@ from flask_socketio import SocketIO
 import subprocess
 import os
 from flask_cors import CORS
+import shutil
 
-# Initialize Flask and Flask-SocketIO
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Folder to store processing videos
+# Video storage paths
+INPUT_VIDEOS_FOLDER = 'input_videos'
 PROCESSING_FOLDER = 'processing_videos'
+OUTPUT_FOLDER = 'output_videos'
 
-@app.route('/upload', methods=['POST'])
-def upload_video():
+# Ensure folders exist
+os.makedirs(INPUT_VIDEOS_FOLDER, exist_ok=True)
+os.makedirs(PROCESSING_FOLDER, exist_ok=True)
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+@app.route('/process', methods=['POST'])
+def process_video():
+    # Construct full paths
     if 'video' not in request.files:
         return jsonify({'error': 'No video file provided'}), 400
 
@@ -24,38 +32,38 @@ def upload_video():
         video.save(video_path)
         print(f"✅ Video saved at: {video_path}")
 
-        # Run the processing script in the background
-        socketio.start_background_task(process_video, video_path, emit_progress)
+        # Start processing
+        socketio.start_background_task(process_video_task, video_path, emit_progress)
+        return jsonify({
+            'message': 'Video processing started',
+            'input_path': video_path,
+            'output_path': os.path.join(OUTPUT_FOLDER, f'processed_{video.name}')
+        })
         
-        
-        return jsonify({'message': 'Video is being processed.'})
     except Exception as e:
-        print(f"❌ Error: {e}")
-        return jsonify({'error': 'Internal Server Error', 'details': str(e)}), 500
+        return jsonify({'error': str(e)}), 500
 
-# Background task for processing video
-def process_video(video_path, send_progress_callback):
-    try:
-        send_progress_callback("Starting video processing...", 0)
+def process_video_task(video_path, emit_callback):
+    proc = subprocess.Popen(
+        ['python', 'main.py', video_path],
+        stdout=subprocess.PIPE,
+        text=True,
+        bufsize=1
+    )
+    for line in proc.stdout:
+        if line.startswith("PROGRESS:"):
+            _, pct, msg = line.split(":", 2)
+            emit_callback(msg.strip(), float(pct))
 
-        result = subprocess.run(
-            ['python', 'main.py', video_path], capture_output=True, text=True
-        )
-
-        if result.returncode != 0:
-            send_progress_callback("Processing failed", 0)
-            print(f"⚠️ Errors: {result.stderr}")
-        else:
-            send_progress_callback("Processing Complete!", 100)
-
-    except Exception as e:
-        send_progress_callback(f"Error occurred during processing: {str(e)}", 0)
-        print(f"❌ Error: {e}")
-
-# Emit progress updates to the frontend
-def emit_progress(message, percent_complete):
-    socketio.emit('progress', {'message': message, 'progress': percent_complete})
+# server.py
+def emit_progress(message, percent):
+    print(f"DEBUG: Emitting progress - {message} ({percent}%)")  # Debug log
+    socketio.emit('progress', {
+        'message': message,
+        'progress': percent
+    }, namespace='/progress')  # Explicit namespace helps debugging
 
 if __name__ == '__main__':
-    print("🚀 Starting server at http://0.0.0.0:3000")
-    socketio.run(app, host='0.0.0.0', port=3000, debug=True)
+    print(f"🔍 Watching for videos in: {INPUT_VIDEOS_FOLDER}")
+    print("🚀 Server ready at http://0.0.0.0:3000")
+    socketio.run(app, host='0.0.0.0', port=3000)

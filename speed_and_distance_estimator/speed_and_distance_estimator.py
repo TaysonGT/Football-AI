@@ -58,11 +58,14 @@ class SpeedAndDistance_Estimator():
                     continue 
 
                 for _, track_info in object_tracks[frame_num].items():
+                   
                    if "speed" in track_info:
                        speed = track_info.get('speed',None)
                        distance = track_info.get('distance',None)
                        if speed is None or distance is None:
-                           continue
+                        print(f"Missing speed or distance for object at frame {frame_num}, player {track_info}")
+                        continue
+
                        
                        bbox = track_info['bbox']
                        position = get_foot_position(bbox)
@@ -72,6 +75,8 @@ class SpeedAndDistance_Estimator():
                        position = tuple(map(int,position))
                        cv2.putText(frame, f"{speed:.2f} km/h",position,cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,0),2)
                        cv2.putText(frame, f"{distance:.2f} m",(position[0],position[1]+20),cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,0),2)
+            print(f"Processing frame {frame_num}/{len(frames)}")
+
             output_frames.append(frame)
         
         return output_frames

@@ -3,7 +3,6 @@ from flask_socketio import SocketIO, join_room
 import subprocess
 import os
 from flask_cors import CORS
-import datetime
 
 app = Flask(__name__)
 CORS(app)

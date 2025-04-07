@@ -109,7 +109,7 @@ if __name__ == '__main__':
         sys.exit(1)
     
     def send_progress_callback(msg, pct):
-        print(f"PROGRESS:{pct}:{msg}")  # Special format
-        
+        print(f"PROGRESS:{pct}:{msg}", flush=True)  # Special format
+
     video = sys.argv[1]
     process_video(video, send_progress_callback)

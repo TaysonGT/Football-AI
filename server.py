@@ -1,13 +1,18 @@
 from flask import Flask, request, jsonify
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, join_room
 import subprocess
 import os
 from flask_cors import CORS
-import shutil
+import datetime
 
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+# Update your Socket.IO initialization:
+socketio = SocketIO(app, 
+                   cors_allowed_origins="*",
+                   logger=True,  # Enable debugging
+                   async_mode='gevent',
+                   engineio_logger=True)  # More verbose logs
 
 # Video storage paths
 INPUT_VIDEOS_FOLDER = 'input_videos'
@@ -18,6 +23,10 @@ OUTPUT_FOLDER = 'output_videos'
 os.makedirs(INPUT_VIDEOS_FOLDER, exist_ok=True)
 os.makedirs(PROCESSING_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+@app.route('/', methods=['POST'])
+def home():
+    return "Server is running"
 
 @app.route('/process', methods=['POST'])
 def process_video():
@@ -32,8 +41,12 @@ def process_video():
         video.save(video_path)
         print(f"✅ Video saved at: {video_path}")
 
+        sid = request.form.get('socket_id')
+        if not sid:
+            return jsonify({'error': 'Socket ID not provided'}), 400
+
         # Start processing
-        socketio.start_background_task(process_video_task, video_path, emit_progress)
+        socketio.start_background_task(process_video_task, video_path, sid=sid)
         return jsonify({
             'message': 'Video processing started',
             'input_path': video_path,
@@ -43,27 +56,57 @@ def process_video():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-def process_video_task(video_path, emit_callback):
+def process_video_task(video_path, sid):
     proc = subprocess.Popen(
         ['python', 'main.py', video_path],
         stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        bufsize=1
+        bufsize=1,
+        universal_newlines=True
     )
-    for line in proc.stdout:
-        if line.startswith("PROGRESS:"):
-            _, pct, msg = line.split(":", 2)
-            emit_callback(msg.strip(), float(pct))
+    
+    while True:
+        output = proc.stdout.readline()
+        if output == '' and proc.poll() is not None:
+            break
+            
+        if output and output.startswith("PROGRESS:"):
+            try:
+                _, pct, msg = output.strip().split(":", 2)
+                # Add room targeting
+                socketio.emit('progress', {
+                    'message': msg.strip(),
+                    'progress': float(pct)
+                }, room=sid)  # Critical change
+            except ValueError as e:
+                print(f"Progress parse error: {e}")
+    if proc.returncode != 0:
+        error = proc.stderr.read()
+        socketio.emit('error', {'message': error}, room=sid)
 
-# server.py
-def emit_progress(message, percent):
-    print(f"DEBUG: Emitting progress - {message} ({percent}%)")  # Debug log
+# Add to server.py
+@socketio.on('join')
+def on_join(data):
+    room = data['room']
+    join_room(room)
+    print(f"Client joined room: {room}")
+
+# Add test endpoint to server.py
+@app.route('/test_progress')
+def test_progress():
+    sid = list(socketio.server.manager.rooms['/'].keys())[0]  # Get first connected client
     socketio.emit('progress', {
-        'message': message,
-        'progress': percent
-    }, namespace='/progress')  # Explicit namespace helps debugging
+        'message': 'TEST MESSAGE',
+        'progress': 50
+    }, room=sid)
+    return jsonify({"status": "test sent"})
+
+@socketio.on('connect', namespace='/progress')
+def handle_connect():
+    print('Client connected to progress namespace')
 
 if __name__ == '__main__':
     print(f"🔍 Watching for videos in: {INPUT_VIDEOS_FOLDER}")
     print("🚀 Server ready at http://0.0.0.0:3000")
-    socketio.run(app, host='0.0.0.0', port=3000)
+    socketio.run(app, host='0.0.0.0', port=3000, debug=True)

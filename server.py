@@ -75,7 +75,7 @@ def process_video_task(video_path, sid):
             try:
                 _, pct, msg = output.strip().split(":", 2)
                 # Add room targeting
-                socketio.emit('progress', {
+                socketio.emit('updates', {
                     'message': msg.strip(),
                     'progress': float(pct)
                 }, room=sid)  # Critical change
@@ -91,20 +91,6 @@ def on_join(data):
     room = data['room']
     join_room(room)
     print(f"Client joined room: {room}")
-
-# Add test endpoint to server.py
-@app.route('/test_progress')
-def test_progress():
-    sid = list(socketio.server.manager.rooms['/'].keys())[0]  # Get first connected client
-    socketio.emit('progress', {
-        'message': 'TEST MESSAGE',
-        'progress': 50
-    }, room=sid)
-    return jsonify({"status": "test sent"})
-
-@socketio.on('connect', namespace='/progress')
-def handle_connect():
-    print('Client connected to progress namespace')
 
 if __name__ == '__main__':
     print(f"🔍 Watching for videos in: {INPUT_VIDEOS_FOLDER}")

@@ -38,9 +38,11 @@ def process_video(video_path, send_progress_callback):
     # camera movement estimator
     send_progress_callback("Estimating Camera Movement...", 30)
     camera_movement_estimator = CameraMovementEstimator(video_frames[0])
-    camera_movement_per_frame = camera_movement_estimator.get_camera_movement(video_frames,
-                                                                                read_from_stub=True,
-                                                                                stub_path='stubs/camera_movement_stub.pkl')
+    camera_movement_per_frame = camera_movement_estimator.get_camera_movement(
+        video_frames,
+        read_from_stub=True,
+        stub_path='stubs/camera_movement_stub.pkl'
+    )
     camera_movement_estimator.add_adjust_positions_to_tracks(tracks,camera_movement_per_frame)
 
     # View Transformer

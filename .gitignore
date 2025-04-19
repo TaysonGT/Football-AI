@@ -1,5 +1,7 @@
 input_videos/*
+uploads/*
 processing_videos/*
+stubs/*
 output_videos/*
 runs/
 test_dataset/

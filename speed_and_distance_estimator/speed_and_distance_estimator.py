@@ -1,11 +1,12 @@
 import cv2
 import sys 
+import pickle
 sys.path.append('../')
 from utils import measure_distance ,get_foot_position
 
 class SpeedAndDistance_Estimator():
     def __init__(self):
-        self.frame_window=5
+        self.frame_window=10
         self.frame_rate=24
     
     def add_speed_and_distance_to_tracks(self,tracks):
@@ -30,7 +31,11 @@ class SpeedAndDistance_Estimator():
                     
                     distance_covered = measure_distance(start_position,end_position)
                     time_elapsed = (last_frame-frame_num)/self.frame_rate
-                    speed_meteres_per_second = distance_covered/time_elapsed
+                    
+                    if time_elapsed == 0:
+                        continue
+
+                    speed_meteres_per_second = (distance_covered/100)/time_elapsed
                     speed_km_per_hour = speed_meteres_per_second*3.6
 
                     if object not in total_distance:
@@ -39,18 +44,21 @@ class SpeedAndDistance_Estimator():
                     if track_id not in total_distance[object]:
                         total_distance[object][track_id] = 0
                     
-                    total_distance[object][track_id] += distance_covered
+                    total_distance[object][track_id] += distance_covered/100
 
                     for frame_num_batch in range(frame_num,last_frame):
                         if track_id not in tracks[object][frame_num_batch]:
                             continue
                         tracks[object][frame_num_batch][track_id]['speed'] = speed_km_per_hour
                         tracks[object][frame_num_batch][track_id]['distance'] = total_distance[object][track_id]
+
+        with open('stubs/track_stubs.pkl','wb') as f:
+            pickle.dump(tracks,f)
     
     def draw_speed_and_distance(self,frames,tracks):
         output_frames = []
         for frame_num, frame in enumerate(frames):
-            if frame_num >= len(tracks):
+            if frame_num >= len(tracks["players"]):
                 output_frames.append(frame)
                 continue
             for object, object_tracks in tracks.items():
@@ -59,23 +67,28 @@ class SpeedAndDistance_Estimator():
 
                 for _, track_info in object_tracks[frame_num].items():
                    
-                   if "speed" in track_info:
-                       speed = track_info.get('speed',None)
-                       distance = track_info.get('distance',None)
-                       if speed is None or distance is None:
-                        print(f"Missing speed or distance for object at frame {frame_num}, player {track_info}")
+                    speed = track_info.get('speed',None)
+                    distance = track_info.get('distance',None)
+                    if speed is None or distance is None:
                         continue
 
-                       
-                       bbox = track_info['bbox']
-                       position = get_foot_position(bbox)
-                       position = list(position)
-                       position[1]+=40
+                    if "speed" in track_info:
+                        print(f"Speed: {speed}, Distance: {distance}")
+                        
+                        bbox = track_info['bbox']
+                        print(f"position: {track_info['position']}")
+                        position = get_foot_position(bbox)
+                        position = list(position)
+                        position[1]+=40
+                        print(f"foot_position: {position}")
 
-                       position = tuple(map(int,position))
-                       cv2.putText(frame, f"{speed:.2f} km/h",position,cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,0),2)
-                       cv2.putText(frame, f"{distance:.2f} m",(position[0],position[1]+20),cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,0),2)
-            print(f"Processing frame {frame_num}/{len(frames)}")
+                        position = tuple(map(int,position))
+                        cv2.putText(frame, f"{speed:.2f} km/h",position,cv2.FONT_HERSHEY_SIMPLEX,0.5,(255,255,255),2)
+                        cv2.putText(frame, f"{distance:.2f} m",(position[0],position[1]+20),cv2.FONT_HERSHEY_SIMPLEX,0.5,(255,255,255),2)
+            
+            if frame_num % 10 == 0:
+                print(f"Processing frame {frame_num}/{len(frames)}")
+
 
             output_frames.append(frame)
         

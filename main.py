@@ -1,6 +1,7 @@
 from utils import read_video, save_video
 from trackers import Tracker
-import cv2
+from ultralytics import YOLO
+import supervision as sv
 import os
 import sys
 import numpy as np
@@ -9,6 +10,10 @@ from player_ball_assigner import PlayerBallAssigner
 from camera_movement_estimator import CameraMovementEstimator
 from view_transformer import ViewTransformer
 from speed_and_distance_estimator import SpeedAndDistance_Estimator
+from sports.configs.soccer import SoccerPitchConfiguration
+
+CONFIG = SoccerPitchConfiguration()
+
 
 def process_video(video_path, send_progress_callback):
 
@@ -20,7 +25,8 @@ def process_video(video_path, send_progress_callback):
 
     # Initialize Tracker
     send_progress_callback("Initializing Tracker...", 10)
-    tracker = Tracker('models/3k_imgs.pt', 'models/3k_imgs.pt')
+    tracker = Tracker('models/3k_imgs.pt')
+    keypoints_model = YOLO('models/pitch_keypoints.pt')
 
     send_progress_callback("Tracking objects...", 20)
     tracks = tracker.get_object_tracks(video_frames,
@@ -37,9 +43,17 @@ def process_video(video_path, send_progress_callback):
                                                                                 stub_path='stubs/camera_movement_stub.pkl')
     camera_movement_estimator.add_adjust_positions_to_tracks(tracks,camera_movement_per_frame)
 
-
-    # View Trasnformer
-    view_transformer = ViewTransformer()
+    # View Transformer
+    result = keypoints_model(video_frames[0], verbose=False)[0]
+    keypoints = sv.KeyPoints.from_ultralytics(result)
+    mask = (keypoints.xy[0][:, 0] > 1) & (keypoints.xy[0][:, 1] > 1)
+    
+    view_transformer = ViewTransformer(
+        source= keypoints.xy[0][mask].astype(np.float32),
+        target=np.array(CONFIG.vertices)[mask].astype(np.float32),
+        model= keypoints_model,
+        frames= video_frames
+    )
     view_transformer.add_transformed_position_to_tracks(tracks)
 
     # Interpolate Ball Positions
@@ -71,7 +85,6 @@ def process_video(video_path, send_progress_callback):
     player_assigner =PlayerBallAssigner()
     team_ball_control= []
     for frame_num, player_track in enumerate(tracks['players']):
-        print(f"Frame {frame_num} ball data:", tracks['ball'][frame_num])
         if 1 in tracks['ball'][frame_num]:
             ball_bbox = tracks['ball'][frame_num][1]['bbox']
         else:
@@ -93,11 +106,11 @@ def process_video(video_path, send_progress_callback):
     ## Draw object Tracks
     output_video_frames = tracker.draw_annotations(video_frames, tracks,team_ball_control)
 
+    ## Draw Speed and Distance
+    output_video_frames = speed_and_distance_estimator.draw_speed_and_distance(output_video_frames,tracks)
+
     ## Draw Camera movement
     output_video_frames = camera_movement_estimator.draw_camera_movement(output_video_frames,camera_movement_per_frame)
-
-    ## Draw Speed and Distance
-    speed_and_distance_estimator.draw_speed_and_distance(output_video_frames,tracks)
 
     # Save video
     send_progress_callback("Processing Complete!", 100)

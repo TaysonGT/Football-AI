@@ -11,9 +11,8 @@ sys.path.append('../')
 from utils import get_center_of_bbox, get_bbox_width, get_foot_position
 
 class Tracker:
-    def __init__(self, player_model_path, ball_model_path):
-        self.player_model = YOLO(player_model_path) 
-        self.ball_model = YOLO(ball_model_path) 
+    def __init__(self, model_path):
+        self.model = YOLO(model_path) 
 
         self.player_tracker = sv.ByteTrack(
             track_activation_threshold=0.5,
@@ -57,8 +56,7 @@ class Tracker:
             with open(stub_path,'rb') as f:
                 return pickle.load(f)
 
-        main_detections = self.detect_frames(frames, self.player_model)
-        # ball_detections = self.detect_frames(frames, self.ball_model)
+        detections = self.detect_frames(frames, self.model)
 
     
         tracks={
@@ -67,13 +65,12 @@ class Tracker:
             "ball":[]
         }
 
-        for frame_num, (detection) in enumerate(main_detections):
+        for frame_num, (detection) in enumerate(detections):
             cls_names = detection.names
             cls_names_inv = {v:k for k,v in cls_names.items()}
 
             # Covert to supervision Detection format
             detection_sv = sv.Detections.from_ultralytics(detection)
-            # ball_detection_sv = sv.Detections.from_ultralytics(ball_detection)
 
 
             # Inside get_object_tracks(), after converting to sv.Detections:
@@ -84,9 +81,7 @@ class Tracker:
                     detection_sv.class_id[object_ind] = cls_names_inv["player"]  # Existing goalkeeper handling
 
             # Track Objects
-            # Filter detections for the ball
             players_tracked = self.player_tracker.update_with_detections(detection_sv)
-            # ball_tracked = self.ball_tracker.update_with_detections(ball_detection_sv)
             
             tracks["players"].append({})
             tracks["referees"].append({})
@@ -106,10 +101,7 @@ class Tracker:
                 if cls_id == cls_names_inv['ball']:
                     tracks["ball"][frame_num][1] = {"bbox":bbox}
 
-        if stub_path is not None:
-            with open(stub_path,'wb') as f:
-                pickle.dump(tracks,f)
-
+        
         return tracks
     def add_position_to_tracks(self,tracks):
         for object, object_tracks in tracks.items():

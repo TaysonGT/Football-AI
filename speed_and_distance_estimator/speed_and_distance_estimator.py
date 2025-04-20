@@ -73,21 +73,14 @@ class SpeedAndDistance_Estimator():
                         continue
 
                     if "speed" in track_info:
-                        print(f"Speed: {speed}, Distance: {distance}")
-                        
                         bbox = track_info['bbox']
-                        print(f"position: {track_info['position']}")
                         position = get_foot_position(bbox)
                         position = list(position)
                         position[1]+=40
-                        print(f"foot_position: {position}")
 
                         position = tuple(map(int,position))
                         cv2.putText(frame, f"{speed:.2f} km/h",position,cv2.FONT_HERSHEY_SIMPLEX,0.5,(255,255,255),2)
                         cv2.putText(frame, f"{distance:.2f} m",(position[0],position[1]+20),cv2.FONT_HERSHEY_SIMPLEX,0.5,(255,255,255),2)
-            
-            if frame_num % 10 == 0:
-                print(f"Processing frame {frame_num}/{len(frames)}")
 
 
             output_frames.append(frame)

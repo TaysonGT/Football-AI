@@ -186,38 +186,62 @@ class Tracker:
 
         return frame
 
-    def draw_team_ball_control(self,frame,frame_num,team_ball_control):
+    def draw_team_ball_control(self, frame, frame_num, team_ball_control, team1_color, team2_color):
         h, w, _ = frame.shape
-        
-        rect_x1, rect_y1 = int(0.7 * w), int(0.85 * h)  # Bottom-right corner
-        rect_x2, rect_y2 = int(0.98 * w), int(0.98 * h)
-        # Draw a semi-transparent rectaggle 
-        overlay = frame.copy()
-        cv2.rectangle(overlay, (rect_x1, rect_y1), (rect_x2,rect_y2), (255,255,255), -1 )
-        alpha = 0.4
-        cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
 
-        team_ball_control_till_frame = team_ball_control[:frame_num+1]
-        # Get the number of time each team had ball control
-        team_1_num_frames = team_ball_control_till_frame[team_ball_control_till_frame==1].shape[0]
-        team_2_num_frames = team_ball_control_till_frame[team_ball_control_till_frame==2].shape[0]
-        team_1 = team_1_num_frames/(team_1_num_frames+team_2_num_frames)
-        team_2 = team_2_num_frames/(team_1_num_frames+team_2_num_frames)
+        # === 1. Calculate Possession ===
+        control_up_to_now = team_ball_control[:frame_num + 1]
+        t1_frames = (control_up_to_now == 1).sum()
+        t2_frames = (control_up_to_now == 2).sum()
+        total = max(t1_frames + t2_frames, 1)
 
-        text_x = rect_x1 + int(0.05 * (rect_x2 - rect_x1))
-        text_y1 = rect_y1 + int(0.4 * (rect_y2 - rect_y1))
-        text_y2 = rect_y1 + int(0.8 * (rect_y2 - rect_y1))
+        t1_percent = t1_frames / total
+        t2_percent = 1 - t1_percent
 
-        # Draw text
-        cv2.putText(frame, f"Team 1 Ball Control: {team_1 * 100:.2f}%", (text_x, text_y1),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
-        cv2.putText(frame, f"Team 2 Ball Control: {team_2 * 100:.2f}%", (text_x, text_y2),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
+        # === 2. Style Parameters ===
+        bar_width = int(w * 0.5)
+        bar_height = 30
+        x_start = w // 2 - bar_width // 2
+        y_start = int(h * 0.92)
 
+        bg_color = (30, 30, 30)
+        border_color = (255, 255, 255)
+
+        # === 3. Background bar ===
+        cv2.rectangle(frame, (x_start - 2, y_start - 2), (x_start + bar_width + 2, y_start + bar_height + 2), border_color, 1)
+        cv2.rectangle(frame, (x_start, y_start), (x_start + bar_width, y_start + bar_height), bg_color, -1)
+
+        # === 4. Fill with team proportions ===
+        t1_width = int(bar_width * t1_percent)
+        t2_width = bar_width - t1_width
+
+        cv2.rectangle(frame, (x_start, y_start), (x_start + t1_width, y_start + bar_height), team1_color, -1)
+        cv2.rectangle(frame, (x_start + t1_width, y_start), (x_start + bar_width, y_start + bar_height), team2_color, -1)
+
+        # === 5. Draw percentages ===
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.6
+        thickness = 2
+
+        # Team 1 %
+        percent1_text = f"{int(t1_percent * 100)}%"
+        (tw1, th1), _ = cv2.getTextSize(percent1_text, font, font_scale, thickness)
+        text_x1 = x_start + t1_width // 2 - tw1 // 2
+        text_y = y_start + bar_height // 2 + th1 // 2 - 3
+        cv2.putText(frame, percent1_text, (text_x1, text_y), font, font_scale, (255, 255, 255), thickness)
+
+        # Team 2 %
+        percent2_text = f"{int(t2_percent * 100)}%"
+        (tw2, th2), _ = cv2.getTextSize(percent2_text, font, font_scale, thickness)
+        text_x2 = x_start + t1_width + t2_width // 2 - tw2 // 2
+        cv2.putText(frame, percent2_text, (text_x2, text_y), font, font_scale, (255, 255, 255), thickness)
 
         return frame
 
-    def draw_annotations(self,video_frames, tracks,team_ball_control):
+
+
+
+    def draw_annotations(self,video_frames, tracks,team_ball_control, team1_color, team2_color):
         output_video_frames= []
         for frame_num, frame in enumerate(video_frames):
             frame = frame.copy()
@@ -245,7 +269,7 @@ class Tracker:
 
 
             # Draw Team Ball Control
-            frame = self.draw_team_ball_control(frame, frame_num, team_ball_control)
+            frame = self.draw_team_ball_control(frame, frame_num, team_ball_control, team1_color, team2_color)
 
             output_video_frames.append(frame)
 

@@ -103,6 +103,7 @@ class Tracker:
 
         
         return tracks
+        
     def add_position_to_tracks(self,tracks):
         for object, object_tracks in tracks.items():
             for frame_num, track in enumerate(object_tracks):
@@ -196,7 +197,6 @@ class Tracker:
         total = max(t1_frames + t2_frames, 1)
 
         t1_percent = t1_frames / total
-        t2_percent = 1 - t1_percent
 
         # === 2. Style Parameters ===
         bar_width = int(w * 0.5)
@@ -222,16 +222,19 @@ class Tracker:
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = 0.6
         thickness = 2
+        
+        t1_percent = round(t1_percent * 100)
+        t2_percent = 100-t1_percent
 
         # Team 1 %
-        percent1_text = f"{int(t1_percent * 100)}%"
+        percent1_text = f"{int(t1_percent)}%"
         (tw1, th1), _ = cv2.getTextSize(percent1_text, font, font_scale, thickness)
         text_x1 = x_start + t1_width // 2 - tw1 // 2
         text_y = y_start + bar_height // 2 + th1 // 2 - 3
         cv2.putText(frame, percent1_text, (text_x1, text_y), font, font_scale, (255, 255, 255), thickness)
 
         # Team 2 %
-        percent2_text = f"{int(t2_percent * 100)}%"
+        percent2_text = f"{int(t2_percent)}%"
         (tw2, th2), _ = cv2.getTextSize(percent2_text, font, font_scale, thickness)
         text_x2 = x_start + t1_width + t2_width // 2 - tw2 // 2
         cv2.putText(frame, percent2_text, (text_x2, text_y), font, font_scale, (255, 255, 255), thickness)

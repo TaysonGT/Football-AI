@@ -74,6 +74,20 @@ async def process_video(websocket:WebSocket):
                 "progress": float(pct),
                 "message": msg.strip()
             })
+        elif line.startswith("FinalPossession:"):
+            _, t1, t2, c1, c2 = line.split(":", 4)
+            await websocket.send_json({
+                "finalPossession": {
+                    "team1": {
+                        "percent": float(t1),
+                        "color": c1.strip()
+                    },
+                    "team2": {
+                        "percent": float(t2),
+                        "color": c2.strip()
+                    }
+                }
+            })
         else:
             await websocket.send_json({
                 "log": line,

@@ -101,7 +101,13 @@ def process_video(video_path, send_progress_callback):
             if(len(team_ball_control)>0):
                 team_ball_control.append(team_ball_control[-1])
     team_ball_control= np.array(team_ball_control)
+    teams, possession = np.unique(team_ball_control, return_counts=True)   
+    teams_control = dict(zip(teams, possession))
+    t1 = teams_control.get(1,0)
+    t2 = teams_control.get(2,0)
 
+    t1 = round((t1/(t1+t2)) * 100)
+    t2 = 100 - t1
 
     # Draw output 
     send_progress_callback("Drawing Annotations...", 90)
@@ -120,6 +126,12 @@ def process_video(video_path, send_progress_callback):
 
     # Save video
     send_progress_callback("Processing Complete!", 100)
+    send_final_possession(
+        t1, 
+        t2, 
+        c1=(team1_color[2], team1_color[1], team1_color[0]), 
+        c2=(team2_color[2], team2_color[1], team2_color[0])
+    )
     save_video(output_video_frames, output_video)
 
 if __name__ == '__main__':
@@ -129,6 +141,9 @@ if __name__ == '__main__':
     
     def send_progress_callback(msg, pct):
         print(f"PROGRESS:{pct}:{msg}", flush=True)  # Special format
+    
+    def send_final_possession(t1, t2, c1, c2):
+        print(f"FinalPossession:{t1}:{t2}:{c1}:{c2}", flush=True)  # Special format
 
     video = sys.argv[1]
     process_video(video, send_progress_callback)

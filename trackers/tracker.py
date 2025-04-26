@@ -12,7 +12,7 @@ from utils import get_center_of_bbox, get_bbox_width, get_foot_position
 
 class Tracker:
     def __init__(self, model_path):
-        self.model = YOLO(model_path) 
+        self.model = YOLO(model_path)
 
         self.player_tracker = sv.ByteTrack(
             track_activation_threshold=0.5,
@@ -21,8 +21,8 @@ class Tracker:
             frame_rate=30
         )
         self.ball_tracker = sv.ByteTrack(
-            track_activation_threshold=0.2, 
-            minimum_matching_threshold=0.6, 
+            track_activation_threshold=0.55,
+            minimum_matching_threshold=0.9, 
             lost_track_buffer=30,
             frame_rate=30
         )
@@ -52,26 +52,25 @@ class Tracker:
 
     def get_object_tracks(self, frames, read_from_stub=False, stub_path=None):
         
-        if read_from_stub and stub_path is not None and os.path.exists(stub_path):
-            with open(stub_path,'rb') as f:
-                return pickle.load(f)
-
-        detections = self.detect_frames(frames, self.model)
-
-    
         tracks={
             "players":[],
             "referees":[],
             "ball":[]
         }
+        if read_from_stub and stub_path is not None and os.path.exists(stub_path):
+            with open(stub_path,'rb') as f:
+                return pickle.load(f)
+                # tracks = pickle.load(f)
 
-        for frame_num, (detection) in enumerate(detections):
+        detections = self.detect_frames(frames, self.model)
+    
+        for frame_num, detection in enumerate(detections):
             cls_names = detection.names
             cls_names_inv = {v:k for k,v in cls_names.items()}
 
             # Covert to supervision Detection format
             detection_sv = sv.Detections.from_ultralytics(detection)
-
+            
 
             # Inside get_object_tracks(), after converting to sv.Detections:
             for object_ind, (class_id, confidence) in enumerate(zip(detection_sv.class_id, detection_sv.confidence)):
@@ -85,7 +84,6 @@ class Tracker:
             
             tracks["players"].append({})
             tracks["referees"].append({})
-            tracks["ball"].append({})
             
             for frame_detection in players_tracked:
                 bbox = frame_detection[0].tolist()
@@ -97,10 +95,19 @@ class Tracker:
                 
                 if cls_id == cls_names_inv['referee']:
                     tracks["referees"][frame_num][track_id] = {"bbox":bbox}
-                
-                if cls_id == cls_names_inv['ball']:
-                    tracks["ball"][frame_num][1] = {"bbox":bbox}
+        
+        for frame_num, detection in enumerate(detections):
+            
+            detection_sv = sv.Detections.from_ultralytics(detection)
 
+            # Track Objects
+            ball_tracked = self.ball_tracker.update_with_detections(detection_sv)
+
+            tracks["ball"].append({})
+            
+            for frame_detection in ball_tracked:
+                bbox = frame_detection[0].tolist()
+                tracks["ball"][frame_num][1] = {"bbox":bbox}
         
         return tracks
         

@@ -2,7 +2,7 @@ from ultralytics import YOLO
 import supervision as sv
 import pickle
 import os
-from filterpy.kalman import KalmanFilter
+from norfair import Tracker, Detection
 import numpy as np
 import pandas as pd
 import cv2
@@ -20,11 +20,10 @@ class Tracker:
             lost_track_buffer=30,
             frame_rate=30
         )
-        self.ball_tracker = sv.ByteTrack(
-            track_activation_threshold=0.55,
-            minimum_matching_threshold=0.9, 
-            lost_track_buffer=30,
-            frame_rate=30
+        self.ball_tracker = Tracker(
+            distance_function='cosine',
+            distance_threshold=0.7,
+            hit_counter_max=15
         )
 
         self.last_ball_position = None
@@ -87,17 +86,36 @@ class Tracker:
                     tracks["referees"][frame_num][track_id] = {"bbox":bbox}
         
         for frame_num, detection in enumerate(detections):
+            for result in detection:
+                for box in result.boxes:
+                    if int(box.cls) == 0 and box.conf > 0.4:
+                        x1,y1,x2,y2 = map(int, box.xyxy[0].cpu().numpy())
+                        center = np.array([[(x1+x2)/2, (y1+y2)/2]])
+                        detections.append(
+                            Detection(
+                                points=center,
+                                scores=np.array([box.conf.item()]),
+                                data={"bbox": [x1,y1,x2,y2]}
+                            )
+                        )
             
-            detection_sv = sv.Detections.from_ultralytics(detection)
+            best_ball = None
+            if tracked_objects:
+                best_ball = max(
+                    (obj for obj in tracked_objects
+                    if hasattr(obj, 'last_detection') and obj.last_detection),
+                    key=lambda x:x.last_detection.scores[0],
+                    default= None
+                )
 
             # Track Objects
-            ball_tracked = self.ball_tracker.update_with_detections(detection_sv)
+            tracked_objects = self.ball_tracker.update(detections=detections) if detections else []
+
 
             tracks["ball"].append({})
             
-            for frame_detection in ball_tracked:
-                bbox = frame_detection[0].tolist()
-                tracks["ball"][frame_num][1] = {"bbox":bbox}
+            if best_ball and best_ball.last_detection:
+                tracks["ball"][frame_num][1] = {"bbox": best_ball.last_detection.data["bbox"]}
         
         return tracks
         

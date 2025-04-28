@@ -26,16 +26,6 @@ class Tracker:
             lost_track_buffer=30,
             frame_rate=30
         )
-        self.kf = KalmanFilter(dim_x=4, dim_z=2)
-        self.kf.F = np.array([[1, 0, 1, 0],  # State transition model
-                              [0, 1, 0, 1],
-                              [0, 0, 1, 0],
-                              [0, 0, 0, 1]])
-        self.kf.H = np.array([[1, 0, 0, 0],  # Measurement function
-                              [0, 1, 0, 0]])
-        self.kf.P *= 1000  # Increase covariance
-        self.kf.Q *= 0.01  # Process noise
-        self.kf.R *= 10  # Measurement noise
 
         self.last_ball_position = None
         self.ball_missing_frames = 0
@@ -131,6 +121,7 @@ class Tracker:
         df_ball_positions = df_ball_positions.bfill()
 
         ball_positions = [{1: {"bbox":x}} for x in df_ball_positions.to_numpy().tolist()]
+        
         return ball_positions
 
     def draw_ellipse(self,frame,bbox,color,track_id=None):
@@ -150,33 +141,33 @@ class Tracker:
             lineType=cv2.LINE_4
         )
 
-        rectangle_width = 40
-        rectangle_height=20
-        x1_rect = x_center - rectangle_width//2
-        x2_rect = x_center + rectangle_width//2
-        y1_rect = (y2- rectangle_height//2) +15
-        y2_rect = (y2+ rectangle_height//2) +15
+        # rectangle_width = 40
+        # rectangle_height=20
+        # x1_rect = x_center - rectangle_width//2
+        # x2_rect = x_center + rectangle_width//2
+        # y1_rect = (y2- rectangle_height//2) +15
+        # y2_rect = (y2+ rectangle_height//2) +15
 
-        if track_id is not None:
-            cv2.rectangle(frame,
-                          (int(x1_rect),int(y1_rect) ),
-                          (int(x2_rect),int(y2_rect)),
-                          color,
-                          cv2.FILLED)
+        # if track_id is not None:
+        #     cv2.rectangle(frame,
+        #                   (int(x1_rect),int(y1_rect) ),
+        #                   (int(x2_rect),int(y2_rect)),
+        #                   color,
+        #                   cv2.FILLED)
             
-            x1_text = x1_rect+12
-            if track_id > 99:
-                x1_text -=10
+        #     x1_text = x1_rect+12
+        #     if track_id > 99:
+        #         x1_text -=10
             
-            cv2.putText(
-                frame,
-                f"{track_id}",
-                (int(x1_text),int(y1_rect+15)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (0,0,0),
-                2
-            )
+        #     cv2.putText(
+        #         frame,
+        #         f"{track_id}",
+        #         (int(x1_text),int(y1_rect+15)),
+        #         cv2.FONT_HERSHEY_SIMPLEX,
+        #         0.6,
+        #         (0,0,0),
+        #         2
+        #     )
 
         return frame
 

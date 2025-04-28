@@ -2,13 +2,20 @@ from ultralytics import YOLO
 import supervision as sv
 import pickle
 import os
-from norfair import Tracker, Detection
+from norfair import Tracker as tracker, Detection
 import numpy as np
+from numpy.linalg import norm
 import pandas as pd
 import cv2
 import sys 
 sys.path.append('../')
 from utils import get_center_of_bbox, get_bbox_width, get_foot_position
+
+def cosine_distance(detection, tracked_object):
+    a = detection.points.flatten()
+    b = tracked_object.estimate.flatten()
+    return 1 - np.dot(a, b) / (norm(a) * norm(b))
+
 
 class Tracker:
     def __init__(self, model_path):
@@ -20,10 +27,10 @@ class Tracker:
             lost_track_buffer=30,
             frame_rate=30
         )
-        self.ball_tracker = Tracker(
-            distance_function='cosine',
-            distance_threshold=0.7,
-            hit_counter_max=15
+        self.ball_tracker = tracker(
+            distance_function= cosine_distance,
+            distance_threshold= 0.7,
+            hit_counter_max= 15
         )
 
         self.last_ball_position = None
@@ -88,7 +95,7 @@ class Tracker:
         for frame_num, detection in enumerate(detections):
             for result in detection:
                 for box in result.boxes:
-                    if int(box.cls) == 0 and box.conf > 0.4:
+                    if int(box.cls) == 0 and box.conf > 0.6:
                         x1,y1,x2,y2 = map(int, box.xyxy[0].cpu().numpy())
                         center = np.array([[(x1+x2)/2, (y1+y2)/2]])
                         detections.append(

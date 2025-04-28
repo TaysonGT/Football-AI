@@ -84,7 +84,9 @@ def process_video(video_path, send_progress_callback):
     
     # Assign Ball Aquisition
     send_progress_callback("Ball Aquisition Estimator...", 70)
-    player_assigner =PlayerBallAssigner()
+    
+    player_assigner = PlayerBallAssigner()
+
     team_ball_control= []
     for frame_num, player_track in enumerate(tracks['players']):
         if 1 in tracks['ball'][frame_num]:
@@ -92,7 +94,7 @@ def process_video(video_path, send_progress_callback):
         else:
             ball_bbox = None  # Or use a predicted value
 
-        assigned_player = player_assigner.assign_ball_to_player(player_track, ball_bbox)
+        assigned_player = player_assigner.assign_ball_to_player(player_track, ball_bbox, frame_num)
 
         if assigned_player != -1 and assigned_player != None:
             tracks['players'][frame_num][assigned_player]['has_ball'] = True

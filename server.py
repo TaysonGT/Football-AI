@@ -18,21 +18,13 @@ app.add_middleware(
 connections = {}
 
 # Video storage paths
-INPUT_VIDEOS_FOLDER = 'input_videos'
-PROCESSING_FOLDER = 'processing_videos'
 OUTPUT_FOLDER = 'output_videos'
 UPLOAD_FOLDER = 'uploads'
 
 # Ensure folders exist
-os.makedirs(INPUT_VIDEOS_FOLDER, exist_ok=True)
-os.makedirs(PROCESSING_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-
-@app.post('/')
-def home():
-    return "Server is running"
 
 @app.post("/upload")
 async def upload_video(video: UploadFile = File(...)):

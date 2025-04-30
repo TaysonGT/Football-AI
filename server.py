@@ -50,14 +50,12 @@ def run_subprocess_sync(video_path):
 async def process_video(websocket:WebSocket):
     await websocket.accept()
     print("🟢 WebSocket accepted")
-
     data = await websocket.receive_json()
     video_path = data.get("video_path")
 
     if not os.path.exists(video_path):
         await websocket.send_json({"error": "Video not found"})
         return
-
     loop = asyncio.get_running_loop()
     for line in await loop.run_in_executor(None, functools.partial(run_subprocess_sync, video_path)):
         if line.startswith("PROGRESS:"):
@@ -84,7 +82,6 @@ async def process_video(websocket:WebSocket):
             await websocket.send_json({
                 "log": line,
             })
-
     await websocket.send_json({"done": True})
 
 # Run FastAPI server using Uvicorn

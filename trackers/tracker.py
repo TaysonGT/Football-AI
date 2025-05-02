@@ -56,7 +56,6 @@ class Tracker:
         if read_from_stub and stub_path is not None and os.path.exists(stub_path):
             with open(stub_path,'rb') as f:
                 return pickle.load(f)
-                # tracks = pickle.load(f)
 
         detections = self.detect_frames(frames, self.model)
     
@@ -67,8 +66,7 @@ class Tracker:
             # Covert to supervision Detection format
             detection_sv = sv.Detections.from_ultralytics(detection)
             
-
-            # Inside get_object_tracks(), after converting to sv.Detections:
+            # Reclassification
             for object_ind, (class_id, confidence) in enumerate(zip(detection_sv.class_id, detection_sv.confidence)):
                 if cls_names[class_id] == "referee" and confidence < 0.7:
                     detection_sv.class_id[object_ind] = cls_names_inv["player"]  # Reclassify as player
@@ -212,7 +210,6 @@ class Tracker:
 
     def draw_team_ball_control(self, frame, frame_num, team_ball_control, team1_color, team2_color):
         h, w, _ = frame.shape
-
         # === 1. Calculate Possession ===
         control_up_to_now = team_ball_control[:frame_num + 1]
         t1_frames = (control_up_to_now == 1).sum()

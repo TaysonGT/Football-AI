@@ -5,6 +5,7 @@ from fastapi import FastAPI, WebSocket, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import functools
 import shutil
+import uvicorn
 
 app = FastAPI()
 app.add_middleware(
@@ -86,5 +87,4 @@ async def process_video(websocket:WebSocket):
 
 # Run FastAPI server using Uvicorn
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=3000, log_level="info")

@@ -16,7 +16,6 @@ CONFIG = SoccerPitchConfiguration()
 
 
 def process_video(video_path, send_progress_callback):
-
     # Read Video
     video_frames = read_video(video_path)
     filename = os.path.basename(video_path)
@@ -35,17 +34,8 @@ def process_video(video_path, send_progress_callback):
     # Get object positions 
     tracker.add_position_to_tracks(tracks)
 
-    # camera movement estimator
-    send_progress_callback("Estimating Camera Movement...", 30)
-    camera_movement_estimator = CameraMovementEstimator(video_frames[0])
-    camera_movement_per_frame = camera_movement_estimator.get_camera_movement(
-        video_frames,
-        read_from_stub=True,
-        stub_path='stubs/camera_movement_stub.pkl'
-    )
-    camera_movement_estimator.add_adjust_positions_to_tracks(tracks,camera_movement_per_frame)
-
     # View Transformer
+    send_progress_callback("Transforming View...", 30)
     result = keypoints_model(video_frames[0], verbose=False)[0]
     keypoints = sv.KeyPoints.from_ultralytics(result)
     mask = (keypoints.xy[0][:, 0] > 1) & (keypoints.xy[0][:, 1] > 1)
@@ -57,6 +47,17 @@ def process_video(video_path, send_progress_callback):
         frames= video_frames
     )
     view_transformer.add_transformed_position_to_tracks(tracks)
+
+
+    # camera movement estimator
+    camera_movement_estimator = CameraMovementEstimator(video_frames[0])
+    camera_movement_per_frame = camera_movement_estimator.get_camera_movement(
+        video_frames,
+        read_from_stub=True,
+        stub_path='stubs/camera_movement_stub.pkl'
+    )
+    camera_movement_estimator.add_adjust_positions_to_tracks(tracks,camera_movement_per_frame)
+
 
     # Interpolate Ball Positions
     send_progress_callback("Interpolating Ball Positions...", 40)

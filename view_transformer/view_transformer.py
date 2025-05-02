@@ -3,7 +3,6 @@ import numpy.typing as npt
 import cv2
 from sports.configs import SoccerPitchConfiguration
 import supervision as sv
-from utils import get_foot_position
 import pickle
 import os
 from ultralytics import YOLO
@@ -38,7 +37,7 @@ class ViewTransformer():
                 keypoint = keypoints[frame_num]
                 self.mask = (keypoint.xy[0][:, 0] > 1) & (keypoint.xy[0][:, 1] > 1)
                 self.source=keypoint.xy[0][self.mask].astype(np.float32)
-                self.target=np.array(self.CONFIG.vertices)[self.mask].astype(np.float32)
+                self.target= np.array(self.CONFIG.vertices)[self.mask].astype(np.float32)
                 
                 for track_id, track_info in track.items():
                     position = track_info['position']

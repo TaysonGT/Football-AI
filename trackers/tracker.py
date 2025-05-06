@@ -267,7 +267,7 @@ class Tracker:
     def draw_annotations(self,video_frames, tracks,team_ball_control, team1_color, team2_color):
         output_video_frames= []
         for frame_num, frame in enumerate(video_frames):
-            frame = frame.copy()
+            
            
             player_dict = tracks["players"][frame_num] if frame_num < len(tracks["players"]) else {}
             ball_dict = tracks["ball"][frame_num] if frame_num < len(tracks["ball"]) else {}

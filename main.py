@@ -23,11 +23,11 @@ def process_video(video_path, send_progress_callback):
     output_video = f"output_videos/processed_{name}.mp4"
 
     # Initialize Tracker
-    send_progress_callback("Initializing Tracker...", 10)
+    send_progress_callback("Initializing Tracker...", 20)
     tracker = Tracker('models/3k_imgs.pt')
     keypoints_model = YOLO('models/pitch_keypoints.pt')
 
-    send_progress_callback("Tracking objects...", 20)
+    send_progress_callback("Tracking objects...", 30)
     tracks = tracker.get_object_tracks(video_frames,
                                        read_from_stub=True,
                                        stub_path='stubs/track_stubs.pkl')
@@ -35,7 +35,7 @@ def process_video(video_path, send_progress_callback):
     tracker.add_position_to_tracks(tracks)
 
     # View Transformer
-    send_progress_callback("Transforming View...", 30)
+    send_progress_callback("Transforming View...", 40)
     result = keypoints_model(video_frames[0], verbose=False)[0]
     keypoints = sv.KeyPoints.from_ultralytics(result)
     mask = (keypoints.xy[0][:, 0] > 1) & (keypoints.xy[0][:, 1] > 1)
@@ -60,16 +60,16 @@ def process_video(video_path, send_progress_callback):
 
 
     # Interpolate Ball Positions
-    send_progress_callback("Interpolating Ball Positions...", 40)
+    send_progress_callback("Interpolating Ball Positions...", 50)
     tracks["ball"] = tracker.interpolate_ball_positions(tracks["ball"])
 
     # Speed and distance estimator
-    send_progress_callback("Estimating Speed and Distance...", 50)
+    send_progress_callback("Estimating Speed and Distance...", 60)
     speed_and_distance_estimator = SpeedAndDistance_Estimator()
     speed_and_distance_estimator.add_speed_and_distance_to_tracks(tracks)
 
     # Assign Player Teams
-    send_progress_callback("Assigning Teams...", 60)
+    send_progress_callback("Assigning Teams...", 70)
     team_assigner = TeamAssigner()
     team_assigner.assign_team_color(video_frames[0], 
                                     tracks['players'][0])
@@ -84,7 +84,7 @@ def process_video(video_path, send_progress_callback):
 
     
     # Assign Ball Aquisition
-    send_progress_callback("Ball Aquisition Estimator...", 70)
+    send_progress_callback("Ball Aquisition Estimator...", 80)
     
     player_assigner = PlayerBallAssigner()
 
@@ -104,8 +104,10 @@ def process_video(video_path, send_progress_callback):
             if(len(team_ball_control)>0):
                 team_ball_control.append(team_ball_control[-1])
     team_ball_control= np.array(team_ball_control)
+    
     teams, possession = np.unique(team_ball_control, return_counts=True)   
     teams_control = dict(zip(teams, possession))
+
     t1 = teams_control.get(1,0)
     t2 = teams_control.get(2,0)
 

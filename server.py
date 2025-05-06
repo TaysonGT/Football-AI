@@ -103,7 +103,11 @@ async def process_video(websocket:WebSocket):
             await websocket.send_json({
                 "log": line,
             })
-    await websocket.send_json({"done": True})
+    filename = os.path.basename(video_path)
+    name, _ = os.path.splitext(filename)  # Removes extension
+    output_video = f"output_videos/processed_{name}.mp4"
+
+    await websocket.send_json({"done": True, 'video_path': output_video})
 
 # Run FastAPI server using Uvicorn
 if __name__ == "__main__":

@@ -123,7 +123,6 @@ def process_video(video_path, send_progress_callback):
     output_video_frames = tracker.draw_annotations(video_frames, tracks,team_ball_control, team1_color, team2_color)
 
 
-    send_progress_callback("Drawing Speed and Distance...", 90)
     ## Draw Speed and Distance
     output_video_frames = speed_and_distance_estimator.draw_speed_and_distance(output_video_frames,tracks)
 
@@ -131,6 +130,7 @@ def process_video(video_path, send_progress_callback):
     # output_video_frames = camera_movement_estimator.draw_camera_movement(output_video_frames,camera_movement_per_frame)
 
     # Save video
+    send_progress_callback("Writing Video...", 90)
     save_video(output_video_frames, output_video)
     send_final_possession(
         t1, 

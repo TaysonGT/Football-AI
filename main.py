@@ -60,16 +60,15 @@ def process_video(video_path, send_progress_callback):
 
 
     # Interpolate Ball Positions
-    send_progress_callback("Interpolating Ball Positions...", 50)
     tracks["ball"] = tracker.interpolate_ball_positions(tracks["ball"])
 
     # Speed and distance estimator
-    send_progress_callback("Estimating Speed and Distance...", 60)
+    send_progress_callback("Estimating Speed and Distance...", 50)
     speed_and_distance_estimator = SpeedAndDistance_Estimator()
     speed_and_distance_estimator.add_speed_and_distance_to_tracks(tracks)
 
     # Assign Player Teams
-    send_progress_callback("Assigning Teams...", 70)
+    send_progress_callback("Assigning Teams...", 60)
     team_assigner = TeamAssigner()
     team_assigner.assign_team_color(video_frames[0], 
                                     tracks['players'][0])
@@ -84,7 +83,7 @@ def process_video(video_path, send_progress_callback):
 
     
     # Assign Ball Aquisition
-    send_progress_callback("Ball Aquisition Estimator...", 80)
+    send_progress_callback("Ball Aquisition Estimator...", 70)
     
     player_assigner = PlayerBallAssigner()
 
@@ -115,7 +114,7 @@ def process_video(video_path, send_progress_callback):
     t2 = 100 - t1
 
     # Draw output 
-    send_progress_callback("Drawing Annotations...", 90)
+    send_progress_callback("Drawing Annotations...", 80)
 
     ## Draw object Tracks
     team_colors = team_assigner.team_colors
@@ -123,6 +122,8 @@ def process_video(video_path, send_progress_callback):
     team2_color = tuple(map(int, team_colors[2]))
     output_video_frames = tracker.draw_annotations(video_frames, tracks,team_ball_control, team1_color, team2_color)
 
+
+    send_progress_callback("Drawing Speed and Distance...", 90)
     ## Draw Speed and Distance
     output_video_frames = speed_and_distance_estimator.draw_speed_and_distance(output_video_frames,tracks)
 
@@ -130,14 +131,14 @@ def process_video(video_path, send_progress_callback):
     # output_video_frames = camera_movement_estimator.draw_camera_movement(output_video_frames,camera_movement_per_frame)
 
     # Save video
-    send_progress_callback("Processing Complete!", 100)
+    save_video(output_video_frames, output_video)
     send_final_possession(
         t1, 
         t2, 
         c1=(team1_color[2], team1_color[1], team1_color[0]), 
         c2=(team2_color[2], team2_color[1], team2_color[0])
     )
-    save_video(output_video_frames, output_video)
+    send_progress_callback("Processing Complete!", 100)
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:

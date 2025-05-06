@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import functools
 import shutil
 import uvicorn
+from typing import List
+from fastapi import HTTPException
 
 app = FastAPI()
 app.add_middleware(
@@ -26,6 +28,20 @@ UPLOAD_FOLDER = 'uploads'
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+@app.get("/play_video/{filename}")
+async def play_video(filename: str):
+    video_path = os.path.abspath(os.path.join(OUTPUT_FOLDER, filename))
+
+    if not os.path.exists(video_path):
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    # Full path to the VLC executable (make sure this path is correct)
+    vlc_path = r"C:\Program Files\VideoLAN\VLC\vlc.exe"  # Adjust this if VLC is installed elsewhere
+    
+    # Run VLC with the video file
+    subprocess.Popen([vlc_path, video_path], shell=True)
+    
+    return {"status": "playing"}
 
 @app.post("/upload")
 async def upload_video(video: UploadFile = File(...)):
@@ -33,6 +49,10 @@ async def upload_video(video: UploadFile = File(...)):
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(video.file, buffer)
     return {"video_path": file_path}
+
+@app.get("/videos")
+def list_videos():
+    return [{"filename": f} for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp4")]
 
 def run_subprocess_sync(video_path):
     # Start subprocess and stream logs

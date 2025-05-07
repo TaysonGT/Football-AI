@@ -14,8 +14,9 @@ from utils import get_center_of_bbox, get_bbox_width, get_foot_position
 def cosine_distance(detection, tracked_object):
     a = detection.points.flatten()
     b = tracked_object.estimate.flatten()
-    return 1 - np.dot(a, b) / (norm(a) * norm(b))
-
+    cosine_sim = np.dot(a, b) / (norm(a) * norm(b) + 1e-6)  # avoid div by 0
+    euclidean_dist = norm(a - b)
+    return 0.5 * (1 - cosine_sim) + 0.5 * (euclidean_dist / 100)
 
 class Tracker:
     def __init__(self, model_path):
@@ -28,15 +29,70 @@ class Tracker:
             frame_rate=30
         )
         self.ball_tracker = tracker(
-            distance_function= cosine_distance,
-            distance_threshold= 0.7,
-            hit_counter_max= 15
+            distance_function=cosine_distance,
+            distance_threshold=0.7,
+            hit_counter_max=15,
+            initialization_delay=3,
         )
 
         self.last_ball_position = None
         self.ball_missing_frames = 0
         self.MAX_DISTANCE = 200  # Prevent large jumps
         self.MAX_MISSING_FRAMES = 5
+
+    def track_ball(frame_num, yolo_results):
+        global tracks
+                
+        detections = []
+        detection_centers = []
+        for result in yolo_results:
+            for box in result.boxes:
+                if int(box.cls) == 0:
+                    conf = box.conf.item()
+                    if conf < 0.2:
+                        continue
+
+                    x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
+                    center = np.array([[(x1 + x2) / 2, (y1 + y2) / 2]])
+                    detection_centers.append(center)
+                    detections.append(
+                        Detection(
+                            points=center,
+                            scores=np.array([conf]),
+                            data={"bbox": [x1, y1, x2, y2], "conf": conf}
+                        )
+                    )
+                    
+        tracked_objects = tracker.update(detections=detections)
+
+        tracks["ball"].append({})
+        
+        if not detections or not tracked_objects:
+            return tracks
+        
+        best_ball = None
+
+        matched_objects = []
+        for obj in tracked_objects:
+            if obj.last_detection is not None:
+                last_point = obj.last_detection.points
+                for det in detection_centers:
+                    if np.allclose(last_point, det, atol=1.0):  # small tolerance
+                        matched_objects.append(obj)
+                        break
+
+        # Among matched objects, get highest confidence
+        best_ball = max(matched_objects, key=lambda x: x.last_detection.data["conf"], default=None)
+
+        
+        if best_ball:
+            tracks["ball"][frame_num][1] = {
+                "bbox": best_ball.last_detection.data["bbox"],
+                "conf": best_ball.last_detection.data["conf"]
+            }
+
+        return tracks
+
 
     def detect_frames(self, frames, model):
         batch_size=20 
@@ -91,37 +147,8 @@ class Tracker:
                     tracks["referees"][frame_num][track_id] = {"bbox":bbox}
         
         for frame_num, detection in enumerate(detections):
-            for result in detection:
-                for box in result.boxes:
-                    if int(box.cls) == 0 and box.conf > 0.6:
-                        x1,y1,x2,y2 = map(int, box.xyxy[0].cpu().numpy())
-                        center = np.array([[(x1+x2)/2, (y1+y2)/2]])
-                        detections.append(
-                            Detection(
-                                points=center,
-                                scores=np.array([box.conf.item()]),
-                                data={"bbox": [x1,y1,x2,y2]}
-                            )
-                        )
+            tracks = self.track_ball(frame_num, detection)
             
-            best_ball = None
-            if tracked_objects:
-                best_ball = max(
-                    (obj for obj in tracked_objects
-                    if hasattr(obj, 'last_detection') and obj.last_detection),
-                    key=lambda x:x.last_detection.scores[0],
-                    default= None
-                )
-
-            # Track Objects
-            tracked_objects = self.ball_tracker.update(detections=detections) if detections else []
-
-
-            tracks["ball"].append({})
-            
-            if best_ball and best_ball.last_detection:
-                tracks["ball"][frame_num][1] = {"bbox": best_ball.last_detection.data["bbox"]}
-        
         return tracks
         
     def add_position_to_tracks(self,tracks):

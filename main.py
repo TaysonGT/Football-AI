@@ -31,6 +31,10 @@ def process_video(video_path, send_progress_callback):
     tracks = tracker.get_object_tracks(video_frames,
                                        read_from_stub=True,
                                        stub_path='stubs/track_stubs.pkl')
+
+    # Interpolate Ball Positions
+    tracks["ball"] = tracker.interpolate_ball_positions(tracks["ball"])
+
     # Get object positions 
     tracker.add_position_to_tracks(tracks)
 
@@ -46,8 +50,8 @@ def process_video(video_path, send_progress_callback):
         model= keypoints_model,
         frames= video_frames
     )
-    view_transformer.add_transformed_position_to_tracks(tracks)
 
+    view_transformer.add_transformed_position_to_tracks(tracks)
 
     # camera movement estimator
     camera_movement_estimator = CameraMovementEstimator(video_frames[0])
@@ -57,10 +61,6 @@ def process_video(video_path, send_progress_callback):
         stub_path='stubs/camera_movement_stub.pkl'
     )
     camera_movement_estimator.add_adjust_positions_to_tracks(tracks,camera_movement_per_frame)
-
-
-    # Interpolate Ball Positions
-    tracks["ball"] = tracker.interpolate_ball_positions(tracks["ball"])
 
     # Speed and distance estimator
     send_progress_callback("Estimating Speed and Distance...", 50)
@@ -90,11 +90,11 @@ def process_video(video_path, send_progress_callback):
     team_ball_control= []
     for frame_num, player_track in enumerate(tracks['players']):
         if 1 in tracks['ball'][frame_num]:
-            ball_bbox = tracks['ball'][frame_num][1]['bbox']
+            ball_pos = tracks['ball'][frame_num][1]['position_transformed']
         else:
-            ball_bbox = None  # Or use a predicted value
+            ball_pos = None  # Or use a predicted value
 
-        assigned_player = player_assigner.assign_ball_to_player(player_track, ball_bbox, frame_num)
+        assigned_player = player_assigner.assign_ball_to_player(player_track, ball_pos, frame_num)
 
         if assigned_player != -1 and assigned_player != None:
             tracks['players'][frame_num][assigned_player]['has_ball'] = True

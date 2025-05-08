@@ -45,7 +45,10 @@ class ViewTransformer():
                     position_transformed = self.transform_point(position)
                     if position_transformed is not None:
                         position_transformed = position_transformed.squeeze().tolist()
-                    tracks[object][frame_num][track_id]['position_transformed'] = position_transformed
+                    if object == "ball":
+                        tracks["ball"][frame_num][1]['position_transformed'] = position_transformed
+                    else:
+                        tracks[object][frame_num][track_id]['position_transformed'] = position_transformed
         with open('stubs/track_stubs.pkl','wb') as f:
             pickle.dump(tracks,f)
 

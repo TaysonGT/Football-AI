@@ -1,10 +1,9 @@
 import numpy as np
 from collections import defaultdict
-from utils import get_foot_position, get_center_of_bbox
 import math
 
 class PlayerBallAssigner:
-    def __init__(self, max_distance=60, min_control_frames=10, movement_threshold=20):
+    def __init__(self, max_distance=200, min_control_frames=5, movement_threshold=100):
         """
         Args:
             max_distance: Maximum pixel distance between player feet and ball (default: 70)
@@ -20,24 +19,23 @@ class PlayerBallAssigner:
             'last_frame': -1
         })
 
-    def assign_ball_to_player(self, players, ball_bbox, frame_num):
+    def assign_ball_to_player(self, players, ball_pos, frame_num):
         """
         Args:
             players: Dict {player_id: {'bbox': [x1,y1,x2,y2]}}
-            ball_bbox: [x1,y1,x2,y2] or None
+            ball_pos: (x,y) or None
             frame_num: Current frame number
             
         Returns:
             player_id or None if no valid player
         """
-        if ball_bbox is None:
+        if ball_pos is None:
             return None
 
-        ball_pos = get_center_of_bbox(ball_bbox)
         candidates = []
 
         for player_id, player in players.items():
-            feet_pos = get_foot_position(player['bbox'])
+            feet_pos = player['position_transformed']
             distance = self._euclidean_distance(feet_pos, ball_pos)
 
             if distance <= self.max_player_ball_distance:
@@ -64,14 +62,6 @@ class PlayerBallAssigner:
     def reset(self):
         """Clear tracking history"""
         self.player_history.clear()
-
-    def _get_player_feet_position(self, bbox):
-        """Get base center position (where ball contact happens)"""
-        return ((bbox[0] + bbox[2]) / 2, bbox[3])
-
-    def _get_bbox_center(self, bbox):
-        """Get center of any bounding box"""
-        return ((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
 
     def _euclidean_distance(self, pos1, pos2):
         """Calculate distance between two (x,y) points"""

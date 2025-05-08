@@ -34,14 +34,10 @@ async def play_video(filename: str):
 
     if not os.path.exists(video_path):
         raise HTTPException(status_code=404, detail="Video not found")
-
-    # Full path to the VLC executable (make sure this path is correct)
-    vlc_path = r"C:\Program Files\VideoLAN\VLC\vlc.exe"  # Adjust this if VLC is installed elsewhere
     
-    # Run VLC with the video file
-    subprocess.Popen([vlc_path, video_path], shell=True)
+    os.startfile(video_path)
     
-    return {"status": "playing"}
+    return {"status": filename}
 
 @app.post("/upload")
 async def upload_video(video: UploadFile = File(...)):

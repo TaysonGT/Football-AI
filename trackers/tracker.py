@@ -40,9 +40,7 @@ class Tracker:
         self.MAX_DISTANCE = 200  # Prevent large jumps
         self.MAX_MISSING_FRAMES = 5
 
-    def track_ball(frame_num, yolo_results):
-        global tracks
-                
+    def track_ball(self, frame_num, yolo_results, tracks):
         detections = []
         detection_centers = []
         for result in yolo_results:
@@ -287,9 +285,6 @@ class Tracker:
         cv2.putText(frame, percent2_text, (text_x2, text_y), font, font_scale, (255, 255, 255), thickness)
 
         return frame
-
-
-
 
     def draw_annotations(self,video_frames, tracks,team_ball_control, team1_color, team2_color):
         output_video_frames= []
